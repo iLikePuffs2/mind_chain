@@ -1,5 +1,6 @@
 package com.example.mind_chain.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.mind_chain.entity.Node;
 import com.example.mind_chain.entity.Note;
 import com.example.mind_chain.service.INodeService;
@@ -10,7 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/graph")
@@ -22,6 +25,36 @@ public class GraphController {
 
     @Autowired
     private INodeService nodeService;
+
+    @GetMapping("/detail")
+    public BizResponse<Map<String, Object>> getGraphDetail(@RequestParam("userId") Integer userId, @RequestParam(value = "noteId", required = false) Integer noteId) {
+        try {
+            Note note;
+            List<Node> nodeList;
+            if (noteId != null) {
+                // 根据笔记id查询笔记详情
+                note = noteService.getById(noteId);
+                QueryWrapper<Node> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("note_id", noteId);
+                nodeList = nodeService.list(queryWrapper);
+            } else {
+                // 查询最新的笔记
+                QueryWrapper<Note> noteQueryWrapper = new QueryWrapper<>();
+                noteQueryWrapper.eq("user_id", userId).eq("enabled", true).orderByDesc("created_time").last("limit 1");
+                note = noteService.getOne(noteQueryWrapper);
+                QueryWrapper<Node> nodeQueryWrapper = new QueryWrapper<>();
+                nodeQueryWrapper.eq("note_id", note.getId());
+                nodeList = nodeService.list(nodeQueryWrapper);
+            }
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("note", note);
+            resultMap.put("nodeList", nodeList);
+            return BizResponse.success(resultMap);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return BizResponse.fail(ResponseCodeEnum.ERROR);
+        }
+    }
 
     /**
      * 修改笔记内容

@@ -137,14 +137,26 @@ public class SidebarController {
     @PutMapping("/rename")
     public BizResponse<String> renameNote(@RequestParam("userId") Integer userId, @RequestParam("oldName") String oldName, @RequestParam("newName") String newName) {
         try {
+            // 检查新笔记名称是否已存在
+            QueryWrapper<Note> checkQueryWrapper = new QueryWrapper<>();
+            checkQueryWrapper.eq("user_id", userId).eq("name", newName);
+            if (noteService.count(checkQueryWrapper) > 0) {
+                return BizResponse.fail(ResponseCodeEnum.FAIL.getCode(), "笔记已存在");
+            }
+
+            // 查找与旧笔记名称相同的笔记
             QueryWrapper<Note> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("user_id", userId).eq("name", oldName);
             List<Note> noteList = noteService.list(queryWrapper);
+
             if (!noteList.isEmpty()) {
+                // 更新笔记名称
                 noteList.forEach(note -> note.setName(newName));
                 noteService.updateBatchById(noteList);
+                return BizResponse.success("笔记重命名成功");
+            } else {
+                return BizResponse.fail(ResponseCodeEnum.FAIL.getCode(), "未找到指定笔记");
             }
-            return BizResponse.success("笔记重命名成功");
         } catch (Exception e) {
             e.printStackTrace();
             return BizResponse.fail(ResponseCodeEnum.ERROR);
