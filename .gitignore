@@ -1,2 +1,4 @@
 workspace.xml
 vcs.xml
+git rm --cached workspace.xml
+git rm --cached vcs.xml
