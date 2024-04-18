@@ -1,3 +1,6 @@
 workspace.xml
 vcs.xml
 target/
+mind_chain.iml
+mind_chain.ipr
+mind_chain.iws
