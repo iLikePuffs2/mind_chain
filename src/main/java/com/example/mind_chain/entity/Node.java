@@ -52,9 +52,9 @@ public class Node implements Serializable {
     private String context;
 
     /**
-     * 父节点的id
+     * 父节点的id(一个节点可能有多个父节点id，所以用英文逗号分割)
      */
-    private Integer parentId;
+    private String parentId;
 
     /**
      * 优先级

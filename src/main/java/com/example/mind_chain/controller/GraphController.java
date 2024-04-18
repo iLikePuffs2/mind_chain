@@ -26,6 +26,12 @@ public class GraphController {
     @Autowired
     private INodeService nodeService;
 
+    /**
+     * 查询某篇笔记的详情
+     * @param userId
+     * @param noteId
+     * @return
+     */
     @GetMapping("/detail")
     public BizResponse<Map<String, Object>> getGraphDetail(@RequestParam("userId") Integer userId, @RequestParam(value = "noteId", required = false) Integer noteId) {
         try {
