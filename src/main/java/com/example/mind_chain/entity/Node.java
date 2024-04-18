@@ -67,14 +67,15 @@ public class Node implements Serializable {
     private String deadline;
 
     /**
-     * 状态(1 可执行,2 被阻塞,3 已完成)
+     * 状态(1 本身可执行-浅绿色,2 有子任务可执行-浅蓝色,3 被阻塞-直接阻塞红色、间接阻塞浅红色,4 已完成)
      */
     private Integer status;
 
     /**
      * 阻塞原因(0 未被阻塞,1 全部的直接子节点被阻塞,2 同级的前置节点未完成,3 事件阻塞,4 时间阻塞)
+     * 一个节点处于被阻塞状态时，可能同时有多个原因，所以用英文逗号分割
      */
-    private Integer blockedReason;
+    private String blockedReason;
 
 
 }
