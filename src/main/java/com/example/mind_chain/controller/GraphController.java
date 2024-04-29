@@ -8,12 +8,16 @@ import com.example.mind_chain.service.INoteService;
 import com.example.mind_chain.util.BizResponse;
 import com.example.mind_chain.util.ResponseCodeEnum;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/graph")
@@ -28,6 +32,7 @@ public class GraphController {
 
     /**
      * 查询某篇笔记的详情
+     *
      * @param userId
      * @param noteId
      * @return
@@ -63,15 +68,16 @@ public class GraphController {
     }
 
     /**
-     * 修改笔记内容
+     * 保存和修改笔记内容
      *
      * @param userId   用户id
      * @param noteId   笔记id
      * @param name     笔记名称
      * @param nodeList 节点列表
-     * @return 修改结果
+     * @return 结果
      */
-    @PutMapping("/update")
+    @PostMapping("/saveAndUpdate")
+    @Transactional
     public BizResponse<String> updateNote(@RequestParam("userId") Integer userId, @RequestParam("noteId") Integer noteId,
                                           @RequestParam("name") String name, @RequestBody List<Node> nodeList) {
         try {
@@ -79,22 +85,61 @@ public class GraphController {
             Note newNote = new Note();
             newNote.setUserId(userId);
             newNote.setName(name);
+            newNote.setEnabled(1);
             newNote.setCreatedTime(LocalDateTime.now().toString());
             noteService.save(newNote);
 
-            // 添加节点
-            nodeList.forEach(node -> node.setNoteId(newNote.getId()));
+            // 为节点设置笔记ID,并临时存储旧的节点ID
+            List<Integer> oldNodeIds = new ArrayList<>();
+            for (Node node : nodeList) {
+                oldNodeIds.add(node.getId());
+                node.setId(null);
+                node.setNoteId(newNote.getId());
+            }
+
+            // 插入节点并获取新节点的ID
             nodeService.saveBatch(nodeList);
+            List<Integer> newNodeIds = nodeList.stream().map(Node::getId).collect(Collectors.toList());
+
+            // 创建旧节点ID到新节点ID的映射
+            Map<Integer, Integer> nodeIdMap = new HashMap<>();
+            for (int i = 0; i < nodeList.size(); i++) {
+                nodeIdMap.put(oldNodeIds.get(i), newNodeIds.get(i));
+            }
+
+            // 更新节点的parentId
+            for (Node node : nodeList) {
+                if (node.getParentId() != null && !node.getParentId().isEmpty()) {
+                    String[] parentIds = node.getParentId().split(",");
+                    List<String> newParentIds = new ArrayList<>();
+                    for (String parentId : parentIds) {
+                        Integer newParentId = nodeIdMap.get(Integer.parseInt(parentId));
+                        if (newParentId != null) {
+                            newParentIds.add(newParentId.toString());
+                        }
+                    }
+                    if (!newParentIds.isEmpty()) {
+                        node.setParentId(String.join(",", newParentIds));
+                    } else {
+                        node.setParentId(null);
+                    }
+                } else {
+                    node.setParentId(null);
+                }
+            }
+
+            // 更新节点
+            nodeService.updateBatchById(nodeList);
 
             // 禁用旧笔记
             Note oldNote = noteService.getById(noteId);
-            oldNote.setEnabled(false);
+            oldNote.setEnabled(0);
             noteService.updateById(oldNote);
 
-            return BizResponse.success("修改笔记内容成功");
+            return BizResponse.success("保存笔记内容成功");
         } catch (Exception e) {
             e.printStackTrace();
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); // 手动回滚事务
             return BizResponse.fail(ResponseCodeEnum.ERROR);
         }
-    }
-}
+    }}

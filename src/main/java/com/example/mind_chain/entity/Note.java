@@ -43,7 +43,7 @@ public class Note implements Serializable {
     /**
      * 是否启用(1启用，0禁用)
      */
-    private Boolean enabled;
+    private int enabled;
 
     /**
      * 创建时间
