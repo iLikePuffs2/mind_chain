@@ -71,6 +71,7 @@ public class SidebarController {
             Note note = new Note();
             note.setUserId(userId);
             note.setName(name);
+            note.setEnabled(1);
             note.setCreatedTime(LocalDateTime.now().toString());
             noteService.save(note);
             return BizResponse.success("新增笔记成功");
@@ -95,10 +96,13 @@ public class SidebarController {
             List<Note> noteList = noteService.list(noteQueryWrapper);
             List<Integer> noteIdList = noteList.stream().map(Note::getId).collect(Collectors.toList());
             if (!noteIdList.isEmpty()) {
-                noteService.removeByIds(noteIdList);
+                // 删除所有对应的节点
                 QueryWrapper<Node> nodeQueryWrapper = new QueryWrapper<>();
                 nodeQueryWrapper.in("note_id", noteIdList);
                 nodeService.remove(nodeQueryWrapper);
+
+                // 删除所有对应的笔记
+                noteService.removeByIds(noteIdList);
             }
             return BizResponse.success("删除笔记成功");
         } catch (Exception e) {

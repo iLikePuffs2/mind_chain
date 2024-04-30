@@ -13,6 +13,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,8 +79,8 @@ public class GraphController {
      */
     @PostMapping("/saveAndUpdate")
     @Transactional
-    public BizResponse<String> updateNote(@RequestParam("userId") Integer userId, @RequestParam("noteId") Integer noteId,
-                                          @RequestParam("name") String name, @RequestBody List<Node> nodeList) {
+    public BizResponse<String> saveAndUpdate(@RequestParam("userId") Integer userId, @RequestParam("noteId") Integer noteId,
+                                             @RequestParam("name") String name, @RequestBody List<Node> nodeList) {
         try {
             // 创建新笔记
             Note newNote = new Note();
@@ -95,6 +96,12 @@ public class GraphController {
                 oldNodeIds.add(node.getId());
                 node.setId(null);
                 node.setNoteId(newNote.getId());
+
+                // 将blockedTime的字符串值转换为MySQL兼容的datetime格式
+                if (node.getBlockedTime() != null && !node.getBlockedTime().isEmpty()) {
+                    LocalDateTime blockedTime = LocalDateTime.parse(node.getBlockedTime(), DateTimeFormatter.ISO_DATE_TIME);
+                    node.setBlockedTime(blockedTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                }
             }
 
             // 插入节点并获取新节点的ID
@@ -131,10 +138,23 @@ public class GraphController {
             // 更新节点
             nodeService.updateBatchById(nodeList);
 
+            // 查询所有旧笔记
+            QueryWrapper<Note> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", userId)
+                    .eq("name", name)
+                    .orderByDesc("created_time");
+            List<Note> oldNotes = noteService.list(queryWrapper);
+
+            // 剔除创建时间最新的笔记
+            if (!oldNotes.isEmpty()) {
+                oldNotes.remove(0);
+            }
+
             // 禁用旧笔记
-            Note oldNote = noteService.getById(noteId);
-            oldNote.setEnabled(0);
-            noteService.updateById(oldNote);
+            for (Note oldNote : oldNotes) {
+                oldNote.setEnabled(0);
+            }
+            noteService.updateBatchById(oldNotes);
 
             return BizResponse.success("保存笔记内容成功");
         } catch (Exception e) {
