@@ -162,4 +162,61 @@ public class GraphController {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); // 手动回滚事务
             return BizResponse.fail(ResponseCodeEnum.ERROR);
         }
-    }}
+    }
+    /**
+     * 查看历史版本
+     *
+     * @param userId 用户id
+     * @param name   笔记名称
+     * @return 历史版本列表
+     */
+    @GetMapping("/history/list")
+    public BizResponse<List<Note>> getHistoryList(@RequestParam("userId") Integer userId, @RequestParam("name") String name) {
+        try {
+            QueryWrapper<Note> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", userId)
+                    .eq("name", name)
+                    .orderByDesc("created_time");
+            List<Note> historyList = noteService.list(queryWrapper);
+            return BizResponse.success(historyList);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return BizResponse.fail(ResponseCodeEnum.ERROR);
+        }
+    }
+
+    /**
+     * 恢复历史版本
+     *
+     * @param userId 用户id
+     * @param name   笔记名称
+     * @param noteId 笔记id
+     * @return 结果
+     */
+    @PostMapping("/history/recovery")
+    @Transactional
+    public BizResponse<String> recoverHistory(@RequestParam("userId") Integer userId, @RequestParam("name") String name, @RequestParam("noteId") Integer noteId) {
+        try {
+            QueryWrapper<Note> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("user_id", userId)
+                    .eq("name", name);
+            List<Note> notes = noteService.list(queryWrapper);
+
+            for (Note note : notes) {
+                if (note.getId().equals(noteId)) {
+                    note.setEnabled(1);
+                } else {
+                    note.setEnabled(0);
+                }
+            }
+
+            noteService.updateBatchById(notes);
+
+            return BizResponse.success("恢复历史版本成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly(); // 手动回滚事务
+            return BizResponse.fail(ResponseCodeEnum.ERROR);
+        }
+    }
+}
